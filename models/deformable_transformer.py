@@ -10,7 +10,9 @@
 import copy
 from typing import Optional, List
 import math
-
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
@@ -113,7 +115,7 @@ class DeformableTransformer(nn.Module):
         output_memory = output_memory.masked_fill(~output_proposals_valid, float(0))
         output_memory = self.enc_output_norm(self.enc_output(output_memory))
         return output_memory, output_proposals
-
+    #原始图片中添补的黑色像素点只会出现在右下角，所以只需要计算右下角的有效比例即可
     def get_valid_ratio(self, mask):
         _, H, W = mask.shape
         valid_H = torch.sum(~mask[:, :, 0], 1)
@@ -122,39 +124,39 @@ class DeformableTransformer(nn.Module):
         valid_ratio_w = valid_W.float() / W
         valid_ratio = torch.stack([valid_ratio_w, valid_ratio_h], -1)
         return valid_ratio
-
+# self.transformer(srcs, masks, pos, query_embeds)#query_embeds是可学习的参数
     def forward(self, srcs, masks, pos_embeds, query_embed=None):
         assert self.two_stage or query_embed is not None
-
+        # isinstance(param,nn.Parameter)判断param是否是nn.Parameter类型
         # prepare input for encoder
         src_flatten = []
         mask_flatten = []
         lvl_pos_embed_flatten = []
         spatial_shapes = []
-        for lvl, (src, mask, pos_embed) in enumerate(zip(srcs, masks, pos_embeds)):
+        for lvl, (src, mask, pos_embed) in enumerate(zip(srcs, masks, pos_embeds)):#zip打包迭代器，enumerate组合
             bs, c, h, w = src.shape
             spatial_shape = (h, w)
             spatial_shapes.append(spatial_shape)
-            src = src.flatten(2).transpose(1, 2)
-            mask = mask.flatten(1)
-            pos_embed = pos_embed.flatten(2).transpose(1, 2)
-            lvl_pos_embed = pos_embed + self.level_embed[lvl].view(1, 1, -1)
+            src = src.flatten(2).transpose(1, 2)#[bs,c,h,w]->[bs,h*w,c]，相当于token的格式
+            mask = mask.flatten(1)#mask是[bs,h,w]->[bs,h*w]
+            pos_embed = pos_embed.flatten(2).transpose(1, 2)#[bs,c,h,w]->[bs,h*w,c]
+            lvl_pos_embed = pos_embed + self.level_embed[lvl].view(1, 1, -1)#可学习的level编码,广播机制
             lvl_pos_embed_flatten.append(lvl_pos_embed)
             src_flatten.append(src)
             mask_flatten.append(mask)
-        src_flatten = torch.cat(src_flatten, 1)
+        src_flatten = torch.cat(src_flatten, 1)#4个level的特征图拼接
         mask_flatten = torch.cat(mask_flatten, 1)
         lvl_pos_embed_flatten = torch.cat(lvl_pos_embed_flatten, 1)
         spatial_shapes = torch.as_tensor(spatial_shapes, dtype=torch.long, device=src_flatten.device)
-        level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
+        level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))#每个层级的起始位置索引
         valid_ratios = torch.stack([self.get_valid_ratio(m) for m in masks], 1)
-
+        #level_start_index是每个层级的起始位置索引，valid_ratios是每个层级的有效比例(2个图片每个图片4个level，所以是2*4)
         # encoder
         memory = self.encoder(src_flatten, spatial_shapes, level_start_index, valid_ratios, lvl_pos_embed_flatten, mask_flatten)
-
+        
         # prepare input for decoder
         bs, _, c = memory.shape
-        if self.two_stage:
+        if self.two_stage:#不然还有一个网络来提取proposal
             output_memory, output_proposals = self.gen_encoder_output_proposals(memory, mask_flatten, spatial_shapes)
 
             # hack implementation for two-stage Deformable DETR
@@ -169,7 +171,7 @@ class DeformableTransformer(nn.Module):
             init_reference_out = reference_points
             pos_trans_out = self.pos_trans_norm(self.pos_trans(self.get_proposal_pos_embed(topk_coords_unact)))
             query_embed, tgt = torch.split(pos_trans_out, c, dim=2)
-        else:
+        else:#走这条路
             query_embed, tgt = torch.split(query_embed, c, dim=1)
             query_embed = query_embed.unsqueeze(0).expand(bs, -1, -1)
             tgt = tgt.unsqueeze(0).expand(bs, -1, -1)
@@ -194,7 +196,7 @@ class DeformableTransformerEncoderLayer(nn.Module):
         super().__init__()
 
         # self attention
-        self.self_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points)
+        self.self_attn = MSDeformAttn(d_model, n_levels, n_heads, n_points) #使用cuda代码加速实现，不要试图看懂！
         self.dropout1 = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_model)
 
@@ -218,6 +220,7 @@ class DeformableTransformerEncoderLayer(nn.Module):
 
     def forward(self, src, pos, reference_points, spatial_shapes, level_start_index, padding_mask=None):
         # self attention
+        # spatial_shapes: [B, L, 2] 是每个level的[H, W]大小,level_start_index标志每个层级的起始位置索引（因为后面会flatten）
         src2 = self.self_attn(self.with_pos_embed(src, pos), reference_points, src, spatial_shapes, level_start_index, padding_mask)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
@@ -238,17 +241,17 @@ class DeformableTransformerEncoder(nn.Module):
     def get_reference_points(spatial_shapes, valid_ratios, device):
         reference_points_list = []
         for lvl, (H_, W_) in enumerate(spatial_shapes):
-
+            # 我觉得这里有问题，应该直接设为 (H_ - 0.5) * valid_ratios[:, None, lvl, 1],然后除以H_
             ref_y, ref_x = torch.meshgrid(torch.linspace(0.5, H_ - 0.5, H_, dtype=torch.float32, device=device),
                                           torch.linspace(0.5, W_ - 0.5, W_, dtype=torch.float32, device=device))
-            ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)
-            ref_x = ref_x.reshape(-1)[None] / (valid_ratios[:, None, lvl, 0] * W_)
-            ref = torch.stack((ref_x, ref_y), -1)
+            ref_y = ref_y.reshape(-1)[None] / (valid_ratios[:, None, lvl, 1] * H_)#就是获得高度的比例,第一个是batchsize，第二个是level
+            ref_x = ref_x.reshape(-1)[None] / (valid_ratios[:, None, lvl, 0] * W_)#整理到对应长宽的比例
+            ref = torch.stack((ref_x, ref_y), -1) #超出1的部分是黑色像素点（应该mask去）,在最后一维拼接（刚好变成154，2）,采样154点，每个点的x,y的比例
             reference_points_list.append(ref)
-        reference_points = torch.cat(reference_points_list, 1)
-        reference_points = reference_points[:, :, None] * valid_ratios[:, None]
-        return reference_points
-
+        reference_points = torch.cat(reference_points_list, 1)#直接拼接4个特征图所有点的比例
+        reference_points = reference_points[:, :, None] * valid_ratios[:, None]#广播机制，每个点的比例乘以对应的level的比例
+        return reference_points #最后为torch.Size([2, 12320, 4, 2]),单纯应为每个level有所不同,而且会把这个分为4个level
+    #我觉得直接除去valid_ratios[:, None, lvl, 1]因该效果相同，因为valid_ratios其实4个特征图的有效比例基本差不多
     def forward(self, src, spatial_shapes, level_start_index, valid_ratios, pos=None, padding_mask=None):
         output = src
         reference_points = self.get_reference_points(spatial_shapes, valid_ratios, device=src.device)
@@ -390,5 +393,6 @@ def build_deforamble_transformer(args):
         enc_n_points=args.enc_n_points,
         two_stage=args.two_stage,
         two_stage_num_proposals=args.num_queries)
-
+if __name__ == '__main__':
+    model = DeformableTransformer()
 

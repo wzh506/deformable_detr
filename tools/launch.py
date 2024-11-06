@@ -144,12 +144,12 @@ def parse_args():
                              "be used for communciation during distributed "
                              "training")
 
-    # positional
+    # positional #这个才是训练的脚本
     parser.add_argument("training_script", type=str,
                         help="The full path to the single GPU training "
                              "program/script to be launched in parallel, "
                              "followed by all the arguments for the "
-                             "training script")
+                             "training script") #最后这个没有default，所以是必须的,
 
     # rest from the training program
     parser.add_argument('training_script_args', nargs=REMAINDER)
@@ -180,7 +180,7 @@ def main():
 
         process = subprocess.Popen(cmd, env=current_env)
         processes.append(process)
-
+    # wait for all processes to finish,两个都结束了就结束了
     for process in processes:
         process.wait()
         if process.returncode != 0:

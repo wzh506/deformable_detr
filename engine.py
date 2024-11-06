@@ -14,14 +14,17 @@ import math
 import os
 import sys
 from typing import Iterable
+import pickle
 
 import torch
 import util.misc as utils
 from datasets.coco_eval import CocoEvaluator
 from datasets.panoptic_eval import PanopticEvaluator
 from datasets.data_prefetcher import data_prefetcher
+import matplotlib.pyplot as plt
 
-
+# 重点放在这个函数上面就好了，这个函数是训练一个epoch的函数
+# 这里只是训练一个epoch，会重复运行这个函数的
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, max_norm: float = 0):
@@ -32,14 +35,37 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     metric_logger.add_meter('grad_norm', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 10
+    print_freq = 100
 
     prefetcher = data_prefetcher(data_loader, device, prefetch=True)
-    samples, targets = prefetcher.next()
-
+    samples, targets = prefetcher.next() #samples是图片，targets是标签,手动next调用
+    '''
+    # print('samples ',samples.shape)
+    #######################################
+    print('samples tensors:',samples.tensors.shape)
+    image = samples.tensors[0].permute(1,2,0).cpu().numpy()
+    plt.imshow(image)
+    plt.show() #可以看到图片其实有一部分是黑的，因为图片的尺寸不一样
+    print('samples mask:',samples.mask.shape)#都是608，843
+    print('targets:',len(targets))
+    print('targets:',targets[0].keys())#dict_keys(['boxes', 'labels', 'image_id', 'area', 'iscrowd', 'orig_size', 'size'])
+    print('targets:',targets[0]['boxes'].shape)#(N,4)[x1,y1,x2,y2]
+    '''
+    
+    #保存为原格式，直接在test.py中读取进行测试
+    with open('samples.pkl','wb') as f:
+        pickle.dump(samples,f)
+    with open('targets.pkl','wb') as f:
+        pickle.dump(targets,f)
+    
+    # print('targets ',targets.shape)
     # for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
+    # 那这里为什么要log_every呢？因为这个函数是一个迭代器，每次迭代都会返回一个batch的数据
+    # 我添加if False:阻止print
     for _ in metric_logger.log_every(range(len(data_loader)), print_freq, header):
         outputs = model(samples)
+        # print('outputs ',outputs)
+        # print('samples ',samples)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
         losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
@@ -55,7 +81,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         loss_value = losses_reduced_scaled.item()
 
         if not math.isfinite(loss_value):
-            print("Loss is {}, stopping training".format(loss_value))
+            print("Loss is {}, stopping training".format(loss_value)) # 如果损失值不是一个有限值，就停止训练
             print(loss_dict_reduced)
             sys.exit(1)
 
@@ -72,10 +98,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         metric_logger.update(grad_norm=grad_total_norm)
 
-        samples, targets = prefetcher.next()
+        samples, targets = prefetcher.next() #把这个数据用完
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
+    # print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 

@@ -1,0 +1,6 @@
+# ninja log v5
+0	4655	1729068155904746250	/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/build/temp.linux-x86_64-cpython-39/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/src/cpu/ms_deform_attn_cpu.o	8da94b3c20c9f180
+0	15161	1729068166396951131	/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/build/temp.linux-x86_64-cpython-39/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/src/vision.o	3a26ebdd98a07fb6
+10	4889	1729068439245128351	/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/build/temp.linux-x86_64-cpython-39/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/src/cpu/ms_deform_attn_cpu.o	dcd5edbd25acd26e
+11	15777	1729068450129257019	/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/build/temp.linux-x86_64-cpython-39/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/src/vision.o	57c60b2ffcbec9a4
+10	17156	1729068451473272740	/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/build/temp.linux-x86_64-cpython-39/data/wangzhaohui/github/bevformer/Deformable-DETR/models/ops/src/cuda/ms_deform_attn_cuda.o	5067fd478abe7085

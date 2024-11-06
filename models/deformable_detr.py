@@ -128,16 +128,16 @@ class DeformableDETR(nn.Module):
         """
         if not isinstance(samples, NestedTensor):
             samples = nested_tensor_from_tensor_list(samples)
-        features, pos = self.backbone(samples)
+        features, pos = self.backbone(samples)#features，pos是一个OrderedDict,都是3个特征图
 
         srcs = []
         masks = []
-        for l, feat in enumerate(features):
-            src, mask = feat.decompose()
+        for l, feat in enumerate(features):#会把序列拿出来作为索引
+            src, mask = feat.decompose()#就是分别获得两个数据,就是CNN，好像尺度也没有变化
             srcs.append(self.input_proj[l](src))
             masks.append(mask)
             assert mask is not None
-        if self.num_feature_levels > len(srcs):
+        if self.num_feature_levels > len(srcs):#还要添加一维
             _len_srcs = len(srcs)
             for l in range(_len_srcs, self.num_feature_levels):
                 if l == _len_srcs:
@@ -153,9 +153,9 @@ class DeformableDETR(nn.Module):
 
         query_embeds = None
         if not self.two_stage:
-            query_embeds = self.query_embed.weight
+            query_embeds = self.query_embed.weight#相当于给了一个水机
         hs, init_reference, inter_references, enc_outputs_class, enc_outputs_coord_unact = self.transformer(srcs, masks, pos, query_embeds)
-
+        #最为重要的是这个transformer，这个transformer是一个类，里面有encoder和decoder
         outputs_classes = []
         outputs_coords = []
         for lvl in range(hs.shape[0]):
@@ -442,12 +442,13 @@ class MLP(nn.Module):
 
 
 def build(args):
-    num_classes = 20 if args.dataset_file != 'coco' else 91
+    num_classes = 20 if args.dataset_file != 'coco' else 91 #COCO has 80 classes but we add background
     if args.dataset_file == "coco_panoptic":
         num_classes = 250
     device = torch.device(args.device)
 
     backbone = build_backbone(args)
+    #
 
     transformer = build_deforamble_transformer(args)
     model = DeformableDETR(

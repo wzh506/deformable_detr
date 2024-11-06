@@ -107,12 +107,12 @@ def get_args_parser():
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='coco')
-    parser.add_argument('--coco_path', default='./data/coco', type=str)
+    parser.add_argument('--coco_path', default='/media/wzh/HP P900/dataset/coco', type=str)#数据集路径在这里
     parser.add_argument('--coco_panoptic_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
 
-    parser.add_argument('--output_dir', default='',
-                        help='path where to save, empty for no saving')
+    parser.add_argument('--output_dir', default='./output',
+                        help='path where to save, empty for no saving') #默认保留在output文件夹下
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=42, type=int)
@@ -127,7 +127,7 @@ def get_args_parser():
 
 
 def main(args):
-    utils.init_distributed_mode(args)
+    utils.init_distributed_mode(args) #初始化分布式环境
     print("git:\n  {}\n".format(utils.get_sha()))
 
     if args.frozen_weights is not None:
@@ -152,7 +152,7 @@ def main(args):
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
 
-    if args.distributed:
+    if args.distributed:#这个参数到底是哪里设置的
         if args.cache_mode:
             sampler_train = samplers.NodeDistributedSampler(dataset_train)
             sampler_val = samplers.NodeDistributedSampler(dataset_val, shuffle=False)
@@ -182,8 +182,9 @@ def main(args):
                 break
         return out
 
-    for n, p in model_without_ddp.named_parameters():
-        print(n)
+    # 这个有啥好print
+    # for n, p in model_without_ddp.named_parameters():
+    #     print(n)
 
     param_dicts = [
         {
@@ -272,7 +273,7 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
-        train_stats = train_one_epoch(
+        train_stats = train_one_epoch( #这里就是训练一个epoch的代码
             model, criterion, data_loader_train, optimizer, device, epoch, args.clip_max_norm)
         lr_scheduler.step()
         if args.output_dir:
@@ -324,3 +325,5 @@ if __name__ == '__main__':
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)
+
+# wget http://images.cocodataset.org/zips/train2017.zip

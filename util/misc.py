@@ -29,7 +29,7 @@ from torch import Tensor
 import torchvision
 if float(torchvision.__version__[:3]) < 0.5:
     import math
-    from torchvision.ops.misc import _NewEmptyTensorOp
+    # from torchvision.ops.misc import _NewEmptyTensorOp
     def _check_size_scale_factor(dim, size, scale_factor):
         # type: (int, Optional[List[int]], Optional[float]) -> None
         if size is None and scale_factor is None:
@@ -226,6 +226,7 @@ class MetricLogger(object):
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
+    # for _ in metric_logger.log_every(range(len(data_loader)), print_freq, header):#
     def log_every(self, iterable, print_freq, header=None):
         i = 0
         if not header:
@@ -262,23 +263,24 @@ class MetricLogger(object):
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-                if torch.cuda.is_available():
-                    print(log_msg.format(
-                        i, len(iterable), eta=eta_string,
-                        meters=str(self),
-                        time=str(iter_time), data=str(data_time),
-                        memory=torch.cuda.max_memory_allocated() / MB))
-                else:
-                    print(log_msg.format(
-                        i, len(iterable), eta=eta_string,
-                        meters=str(self),
-                        time=str(iter_time), data=str(data_time)))
+                if False:#暂时把print关闭，烦死了
+                    if torch.cuda.is_available():
+                        print(log_msg.format(
+                            i, len(iterable), eta=eta_string,
+                            meters=str(self),
+                            time=str(iter_time), data=str(data_time),
+                            memory=torch.cuda.max_memory_allocated() / MB))
+                    else:
+                        print(log_msg.format(
+                            i, len(iterable), eta=eta_string,
+                            meters=str(self),
+                            time=str(iter_time), data=str(data_time)))
             i += 1
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print('{} Total time: {} ({:.4f} s / it)'.format(
-            header, total_time_str, total_time / len(iterable)))
+            header, total_time_str, total_time / len(iterable))) #这里进行print
 
 
 def get_sha():
@@ -335,7 +337,8 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
         raise ValueError('not supported')
     return NestedTensor(tensor, mask)
 
-
+# NestedTensor是一个自定义的类，用于处理不同大小的图片
+# 
 class NestedTensor(object):
     def __init__(self, tensors, mask: Optional[Tensor]):
         self.tensors = tensors
