@@ -1,0 +1,4 @@
+# ninja log v5
+0	3247	1730945649803239221	/data/wangzhaohui/github/deformable_detr/models/ops/build/temp.linux-x86_64-3.8/data/wangzhaohui/github/deformable_detr/models/ops/src/cpu/ms_deform_attn_cpu.o	3101f93f5f584162
+0	11013	1730945657563354624	/data/wangzhaohui/github/deformable_detr/models/ops/build/temp.linux-x86_64-3.8/data/wangzhaohui/github/deformable_detr/models/ops/src/cuda/ms_deform_attn_cuda.o	cc08e89dda0d862a
+0	17032	1730945663575444032	/data/wangzhaohui/github/deformable_detr/models/ops/build/temp.linux-x86_64-3.8/data/wangzhaohui/github/deformable_detr/models/ops/src/vision.o	4b5344fb5e4185a3

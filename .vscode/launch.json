@@ -8,7 +8,7 @@
             "name": "test",
             "type": "debugpy-old",
             "request": "launch",
-            "program": "/home/wzh/study/github/3D object detection/Deformable-DETR/test.py",
+            "program": "/data/wangzhaohui/github/deformable_detr/test.py",
             "console": "integratedTerminal"
         }
     ]

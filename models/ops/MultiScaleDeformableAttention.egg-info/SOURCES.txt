@@ -1,7 +1,7 @@
 setup.py
-/home/wzh/study/github/3D object detection/Deformable-DETR/models/ops/src/vision.cpp
-/home/wzh/study/github/3D object detection/Deformable-DETR/models/ops/src/cpu/ms_deform_attn_cpu.cpp
-/home/wzh/study/github/3D object detection/Deformable-DETR/models/ops/src/cuda/ms_deform_attn_cuda.cu
+/data/wangzhaohui/github/deformable_detr/models/ops/src/vision.cpp
+/data/wangzhaohui/github/deformable_detr/models/ops/src/cpu/ms_deform_attn_cpu.cpp
+/data/wangzhaohui/github/deformable_detr/models/ops/src/cuda/ms_deform_attn_cuda.cu
 MultiScaleDeformableAttention.egg-info/PKG-INFO
 MultiScaleDeformableAttention.egg-info/SOURCES.txt
 MultiScaleDeformableAttention.egg-info/dependency_links.txt
